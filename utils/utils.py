@@ -1,5 +1,22 @@
 import requests
+import re
 from bs4 import BeautifulSoup
+import sys
+import time
+
+class Tee(object):
+    def __init__(self, name, mode):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def __del__(self):
+        sys.stdout = self.stdout
+        self.file.close()
+    def write(self, data):
+        self.file.write(data)
+        self.stdout.write(data)
+    def flush(self):
+        self.file.flush()
 
 
 def scrape_text(url):
@@ -9,7 +26,13 @@ def scrape_text(url):
     return tab[0].text
 
 
-def scrape_band(url, verbose=True):
+def clean_record(txt):
+    newlines = txt.replace('\\n', '\n')
+    return bytes(re.sub('\n+', '\n', re.sub(r"(Ref.+|[0-9]+\.|\\r|\r|(^ ))", '', newlines)), 'utf-8').decode('utf-8', 'ignore')
+
+
+
+def scrape_band(url, verbose=True, sleep_time=0.5):
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
 
@@ -21,10 +44,15 @@ def scrape_band(url, verbose=True):
         except ValueError:
             continue
 
-    max_page_num = max(page_nums)
-
-    active = soup.find("li", attrs={"class": "page-item active"})
-    active_page_num = int(active.find("a").contents[0])
+    # if there is less than 31 hits there are no pages
+    try:
+        max_page_num = max(page_nums)
+        # try to get active page number
+        active = soup.find("li", attrs={"class": "page-item active"})
+        active_page_num = int(active.find("a").contents[0])
+    except ValueError:
+        max_page_num = 1
+        active_page_num = 1
 
     res = []
 
@@ -38,6 +66,7 @@ def scrape_band(url, verbose=True):
 
         # collect song texts
         for i, (title, link_end) in enumerate(metadata):
+            time.sleep(sleep_time)
             if verbose:
                 print(f"Song {i + 1}/30, page {active_page_num}/{max_page_num}, title = {title}.")
             full_link = "https://www.tekstowo.pl" + link_end
