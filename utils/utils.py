@@ -5,8 +5,8 @@ import sys
 import time
 
 class Tee(object):
-    def __init__(self, name, mode):
-        self.file = open(name, mode)
+    def __init__(self, name, mode, encoding="utf-8"):
+        self.file = open(name, mode, encoding=encoding)
         self.stdout = sys.stdout
         sys.stdout = self
     def __del__(self):
@@ -14,16 +14,43 @@ class Tee(object):
         self.file.close()
     def write(self, data):
         self.file.write(data)
-        self.stdout.write(data)
+        try:
+            self.stdout.write(data)
+        except UnicodeEncodeError as err:
+            self.stdout.write(f"Writing log didn't succeed due to {err}.")
+
     def flush(self):
         self.file.flush()
 
 
-def scrape_text(url):
-    r = requests.get(url)
+def robust_request(url, sleep_time=0.5):
+    """
+    A wrapper to make robust https requests.
+    """
+    status_code = 500  # Want to get a status-code of 200
+    while status_code != 200:
+        time.sleep(sleep_time)  # Don't ping the server too often
+        try:
+            r = requests.get(url)
+            status_code = r.status_code
+            if status_code != 200:
+                print(f"Server Error! Response Code {r.status_code}. Retrying...")
+        except:
+            print("An exception has occurred, probably a momentory loss of connection. Waiting one seconds...")
+            time.sleep(2)
+    return r
+
+
+def scrape_text(url, sleep_time):
+    r = robust_request(url, sleep_time)
     soup = BeautifulSoup(r.text, "html.parser")
-    tab = soup.findAll("div", attrs={"class":"inner-text"})
-    return tab[0].text
+    tab = soup.findAll("div", attrs={"class": "inner-text"})
+    # it may happen that a song won't have any text
+    # then we return empty string
+    if len(tab) == 0:
+        return ""
+    else:
+        return tab[0].text
 
 
 def clean_record(txt):
@@ -33,7 +60,7 @@ def clean_record(txt):
 
 
 def scrape_band(url, verbose=True, sleep_time=0.5):
-    r = requests.get(url)
+    r = robust_request(url, sleep_time)
     soup = BeautifulSoup(r.text, "html.parser")
 
     pages = [i.contents[0] for i in soup.findAll("a", attrs={"class": "page-link"})]
@@ -66,18 +93,22 @@ def scrape_band(url, verbose=True, sleep_time=0.5):
 
         # collect song texts
         for i, (title, link_end) in enumerate(metadata):
-            time.sleep(sleep_time)
+            # time.sleep(sleep_time)
             if verbose:
-                print(f"Song {i + 1}/30, page {active_page_num}/{max_page_num}, title = {title}.")
+                t = time.localtime()
+                current_time = time.strftime("%H:%M:%S", t)
+                print(f"Song {i + 1}/30, page {active_page_num}/{max_page_num}, title = {title} (time: {current_time}).")
             full_link = "https://www.tekstowo.pl" + link_end
-            res.append(scrape_text(full_link))
+            scraped_text = scrape_text(full_link, sleep_time)
+            if scraped_text != "":
+                res.append(scraped_text)
 
         # update page counter
         active_page_num += 1
         # if the page wasn't the last update url,soup variables
         if active_page_num <= max_page_num:
             new_url = url+f",alfabetycznie,strona,{active_page_num}.html"
-            r = requests.get(new_url)
+            r = robust_request(new_url, sleep_time)
             soup = BeautifulSoup(r.text, "html.parser")
 
     return res
