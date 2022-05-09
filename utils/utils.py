@@ -53,6 +53,59 @@ def scrape_text(url, sleep_time):
         return tab[0].text
 
 
+def clean_record_for_nlp(txt):
+    """
+    Idea: preprocess song text for NLP models. Each song is treated
+    as one input.
+    At the end of each line '<EOL>' token is added.
+    At the beginning of chorus a '<RBEG>' token is added.
+    At the end of chorus a '<REND>' token is added.
+    At the end of each stanza add '<EOST>'.
+
+    :param txt:
+    :return:
+    """
+    txt = txt.replace('\\n', '\n')
+    idx_add = 0  # after each token insertion indices of chorus beginning are changing
+    # and idx_add purpose is to store the value of this shift
+
+    matched = re.finditer(pattern=r'R(efren|EFREN|ef|EF|)(\.|:|\.:)|\[[0-9]x:\]', string=txt)
+    chorus_beg_ids = [match.start() for match in matched]
+
+    # add <RBEG> token
+    for chor_start in chorus_beg_ids:
+        txt = txt[:chor_start+idx_add] + "<RBEG>" + txt[chor_start+idx_add:]
+        idx_add += len("<RBEG>")
+
+    matched = re.finditer(pattern=r"\n\n", string=txt)
+    stanza_end_ids = [match.end() for match in matched] + [len(txt)]
+    # add <EOST> token
+    idx_add = 0
+    for stanza_end in stanza_end_ids:
+        txt = txt[:(stanza_end+idx_add-1)] + "<EOST>" + txt[(stanza_end+idx_add-1):]
+        idx_add += len("<EOST>")
+
+    #chorus_end_id = max([i if i > chorus_beg_id else -1 for i in stanza_end_ids])
+    #chorus_end_id = set([i for i in chorus_beg_id])\
+    #    .intersection(set([i for i in stanza_end_ids])\
+    #                  .difference(set(chorus_beg_id)))
+    #stanza_end_ids = list(set(stanza_end_ids).difference(chorus_end_id))
+    #chorus_end_id = []
+    #for pair in stanza_end_ids
+    #print(txt)
+    #print("chorus_end_id", chorus_end_id)
+    #print("chorus_beg_id", chorus_beg_ids)
+    #print("stanza_end_ids", stanza_end_ids)
+
+    # add <REND> token
+    #txt = txt[:chorus_end_id] + "<REND>" + txt[chorus_end_id:]
+
+    # add <EOL> tokens
+    #txt_splited = txt.split()
+    #txt = "<|startoftext|>" + txt + "<|endoftext|>"
+    return bytes(txt.encode("utf8", errors="ignore")).decode("utf-8-sig", "ignore")
+
+
 def clean_record(txt):
     newlines = txt.replace('\\n', '\n')
     return bytes(re.sub('\n+', '\n', re.sub(r"(Ref.+|[0-9]+\.|\\r|\r|(^ ))", '', newlines)), 'utf-8').decode('utf-8', 'ignore')
