@@ -2,7 +2,7 @@ import pandas as pd
 import re
 
 
-df = pd.read_csv("../data/songs_data_tokenized.csv")
+df = pd.read_csv("../data/non_disco_songs_data_tokenized.csv", names=['song'])
 
 def add_REND_token(song):
     matched = re.finditer(pattern=r'<RBEG>', string=song)
@@ -24,5 +24,5 @@ def add_REND_token(song):
     return song
 
 df.song = df.song.apply(lambda x: add_REND_token(x))
-df.to_csv("../data/songs_data_tokenized2.csv", index=False)
+df.to_csv("../data/non_disco_songs_data_tokenized2.csv", index=False)
 

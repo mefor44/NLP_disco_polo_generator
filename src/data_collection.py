@@ -12,13 +12,13 @@ from utils.utils import scrape_band, clean_record, Tee, clean_record_for_nlp
 # for logging purposes
 sys.stdout = Tee("log_data_collection.dat", mode="a", encoding='utf-8')
 # read the urls
-urls = pd.read_excel("../data/Disco-Polo.xlsx")["link"]
+urls = pd.read_excel("../data/non_disco_polo.xlsx")["link"]
 # print(urls)
 
 n_bands = 0
 n_hits = 0
 n_bands_total = len(urls)
-with open("../data/songs_data_tokenized.txt", "a", encoding='utf-8-sig') as file:
+with open("../data/non_disco_songs_data_tokenized.txt", "a", encoding='utf-8-sig') as file:
     # iterate over each band
     for band_url in urls:
         print(f"Band number {(n_bands+1)} out of {n_bands_total} bands")
@@ -30,7 +30,7 @@ with open("../data/songs_data_tokenized.txt", "a", encoding='utf-8-sig') as file
         # write output to the data file
         file.write(u'\n\n'.join(res_cleaned))
         df = pd.DataFrame(data={"song": res_cleaned})
-        df.to_csv("../data/songs_data_tokenized.csv", sep=',', index=False, mode="a", header=False)#, encoding='utf-8')
+        df.to_csv("../data/non_disco_songs_data_tokenized.csv", sep=',', index=False, mode="a", header=False)#, encoding='utf-8')
 
 
 print(f"Data was scraped for {n_hits} songs.")
